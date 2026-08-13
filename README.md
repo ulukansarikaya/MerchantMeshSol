@@ -15,6 +15,16 @@ the Solana port and is not part of this repository.)
 Everything runs end-to-end on localhost in mock mode (`MOCK_PAYMENTS=true`,
 `MOCK_CHAIN=true`, `AI_PROVIDER=mock`) — no wallet, no RPC, no model required.
 
+### Why this is a web app (for now)
+
+Walking to a neighbourhood shop is a phone activity, not a desktop one, so the natural home
+for this product is a **native mobile app** — that is the next client we intend to build. The
+web client came first as a deliberate scoping decision: within the hackathon timeline it was
+the fastest way to prove the hard part end-to-end — agent-to-agent paid discovery, signed
+quotes, and real on-chain escrow settlement on Solana devnet. Everything a mobile client
+needs already exists as HTTP services and shared TypeScript packages, so the mobile app is a
+new front end over the same backend, not a rewrite. See [Roadmap](#roadmap) for the rest.
+
 ## Quickstart
 
 Requirements: **Node ≥ 23.4** (uses the built-in `node:sqlite`), **pnpm 9**.
