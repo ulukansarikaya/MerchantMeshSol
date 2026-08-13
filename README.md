@@ -167,9 +167,10 @@ the UI. (In pure mock mode with no `DATABASE_URL`, the pre-funding chain from
 
 ### Demo spend budget (one demo run)
 
-5 quotes (0.0025) + reserve (0.001) + 2 quality asks (0.0004) + 1 negotiation (0.002) +
-4 order fees (0.004) = **0.0099 / 0.01 USDC** — the budget gauge ends one micro-action away
-from the cap, and the enforcement test proves overruns are physically blocked.
+5 quote-baskets (0.0025) + 1 reservation (0.001) + 2 negotiations (0.004) =
+**0.0075 / 0.01 USDC** — quality scores now ride along with `quote-basket` and order creation
+is free, so the remaining spend is quotes, one stock reservation, and the negotiations the
+agent judged worth paying for. The enforcement test proves overruns are physically blocked.
 
 ## Live mode: database infrastructure (optional)
 

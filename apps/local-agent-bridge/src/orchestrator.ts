@@ -279,7 +279,7 @@ export class Orchestrator {
       this.setStatus(taskId, "researching");
       await this.reserveScarceStock(taskId, plan.items, candidates);
       this.qualityScore(taskId, plan.items, candidates);
-      await this.negotiateSoleSuppliers(taskId, plan.items, candidates);
+      await this.negotiateLeadingOffers(taskId, candidates);
 
       // 5. Build 2–3 options from the (possibly negotiated) active quotes
       const { options, unfulfillable } = buildOptions(plan.items, candidates);
@@ -407,21 +407,32 @@ export class Orchestrator {
   }
 
   /**
-   * Negotiate only with sole suppliers (their shop appears in every option) —
-   * and only when the budget still covers the planned order fees afterwards.
+   * Negotiate where it can actually change the basket: with merchants that
+   * currently hold the best unit price for at least one SKU they quoted, and
+   * only while the budget still covers the planned order fees afterwards.
+   *
+   * This deliberately isn't "sole supplier of a SKU". A general store quotes
+   * the whole list, so in a neighbourhood with one market almost nothing has
+   * exactly one supplier — that reading made the agent skip negotiation
+   * entirely. Leading on a line is the property that matters: a discount
+   * there moves the option totals, while haggling with a merchant that loses
+   * every line just spends budget for nothing.
    */
-  private async negotiateSoleSuppliers(taskId: string, planItems: PlanItem[], candidates: CandidateQuote[]): Promise<void> {
-    // Faz J §3 — order creation is free now (Faz I's acceptance flow), so
-    // there's no longer a later per-shop order fee to reserve budget against.
+  private async negotiateLeadingOffers(taskId: string, candidates: CandidateQuote[]): Promise<void> {
+    // Order creation is free (the acceptance flow creates orders), so there's
+    // no later per-shop order fee to reserve budget against.
     const plannedOrderFees = 0;
 
     for (const candidate of candidates) {
       const { merchant, quote } = candidate;
       if (!merchant.negotiation) continue;
-      const soleFor = quote.items.filter(
-        (qi) => candidates.filter((c) => c.quote.items.some((o) => o.sku === qi.sku)).length === 1,
-      );
-      if (soleFor.length === 0) continue;
+      const leadsOnSomeSku = quote.items.some((qi) => {
+        const bestUnitPrice = Math.min(
+          ...candidates.flatMap((c) => c.quote.items.filter((o) => o.sku === qi.sku).map((o) => o.unitPriceMicroUsdc)),
+        );
+        return qi.unitPriceMicroUsdc <= bestUnitPrice; // ties count as leading
+      });
+      if (!leadsOnSomeSku) continue;
 
       const fee = ENDPOINT_PRICES_MICRO.negotiate;
       // Optimistic expected discount: half of our 10% request.

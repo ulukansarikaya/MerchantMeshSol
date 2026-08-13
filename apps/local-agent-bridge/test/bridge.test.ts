@@ -39,12 +39,15 @@ describe("M4 — headless plan → options (AI_PROVIDER=mock)", () => {
     expect(events).toContain("negotiation_success");
     expect(events).toContain("reservation_made");
 
-    // Zeynep's negotiated quote is used in every option.
-    const negotiation = stack.bus.history(taskId).find((e) => e.type === "negotiation_success")!;
-    expect(negotiation.data.merchant).toBe("zeynep-manav");
-    for (const option of snapshot.options) {
-      const zeynepShop = option.shops.find((s: any) => s.merchantSlug === "zeynep-manav");
-      expect(zeynepShop.quoteId).toBe(negotiation.data.newQuoteId);
+    // Whoever the agent negotiated with, the options carry the negotiated
+    // quote — never the superseded one it replaced.
+    const negotiations = stack.bus.history(taskId).filter((e) => e.type === "negotiation_success");
+    expect(negotiations.length).toBeGreaterThan(0);
+    for (const negotiation of negotiations) {
+      for (const option of snapshot.options) {
+        const shop = option.shops.find((s: any) => s.merchantSlug === negotiation.data.merchant);
+        if (shop) expect(shop.quoteId).toBe(negotiation.data.newQuoteId);
+      }
     }
 
     // Research budget respected end to end.
