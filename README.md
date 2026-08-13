@@ -1,10 +1,7 @@
 # MerchantMesh — Local AI Shopping Agent on Solana
 
-MVP presentation: [`docs/MerchantMesh-MVP-Deck.pptx`](docs/MerchantMesh-MVP-Deck.pptx)  
-GitHub submission checklist: [`docs/MVP_SUBMISSION.md`](docs/MVP_SUBMISSION.md)
-
-A local-first prototype: you write a Turkish meal/shopping request, a local AI agent turns it
-into a shopping list, discovers nearby **merchant agents** by distance, **pays for every
+A local-first prototype: you write a natural-language meal/shopping request, a local AI agent
+turns it into a shopping list, discovers nearby **merchant agents** by distance, **pays for every
 merchant request** through an x402-style micropayment flow (hard-capped research budget),
 negotiates and reserves where it helps, presents 2–3 options — and only **after your
 approval** funds per-shop **on-chain Solana escrows** that are released by **pickup-code
@@ -18,31 +15,6 @@ the Solana port and is not part of this repository.)
 Everything runs end-to-end on localhost in mock mode (`MOCK_PAYMENTS=true`,
 `MOCK_CHAIN=true`, `AI_PROVIDER=mock`) — no wallet, no RPC, no model required.
 
-## Roadmap
-
-MerchantMesh's MVP is web-first and pickup-only on purpose: the hackathon timeline favored
-shipping a real, working Solana devnet demo over a bigger surface area. The underlying
-primitives — **agent-to-agent micropayments, on-chain escrow, and verified completion** —
-aren't specific to local grocery pickup, and the plan is to prove that out:
-
-- **Native mobile app.** A local-commerce agent is fundamentally a mobile use case (you're
-  walking to the shop, not sitting at a desk) — web was the deliberate scoping choice for the
-  hackathon, not the end state. A React Native/Expo client reusing the same wallet-adapter and
-  API layer is the next client target.
-- **Courier delivery.** Same escrow model, different release trigger: instead of an in-person
-  pickup code, a courier agent (itself a paid participant in the marketplace) confirms
-  delivery via GPS + proof-of-delivery, and that confirmation releases the merchant's escrow.
-- **Broader online shopping.** Today's merchant discovery is hyper-local (Haversine distance
-  to nearby esnaf). The same paid-quote → negotiate → escrow → release pipeline generalizes to
-  any online merchant catalog, not just neighborhood shops within walking distance.
-- **Service marketplaces (e.g. ride-hailing).** The furthest-out extension: swap "goods
-  pickup" for "service completion." A driver agent quotes a fare, the buyer approves, escrow
-  funds, and release triggers on verified trip completion instead of a pickup code — the same
-  three primitives, applied to a service instead of a product.
-
-None of the above is implemented — this section is explicitly a roadmap, not a claim about
-the current MVP.
-
 ## Quickstart
 
 Requirements: **Node ≥ 23.4** (uses the built-in `node:sqlite`), **pnpm 9**.
@@ -50,7 +22,7 @@ Requirements: **Node ≥ 23.4** (uses the built-in `node:sqlite`), **pnpm 9**.
 ```bash
 pnpm i          # install workspace deps
 pnpm db:seed    # seed 5 merchants + fund the simulated session wallet
-pnpm demo       # headless köfte demo incl. the scripted mini-market failure
+pnpm demo       # headless end-to-end demo incl. the scripted mini-market failure
 pnpm dev        # all four services: web :3000, platform-api :3002, bridge :3001, merchants :4000
 ```
 
@@ -59,15 +31,15 @@ with `apps/web/.env.local`'s default `NEXT_PUBLIC_MOCK=true` and no `DATABASE_UR
 app never calls it and the bridge never requires a session. See "Live-version wallet auth
 (Faz C)" below for the real-mode Solana wallet login path.
 
-Then open **http://localhost:3000**, keep the default prompt
-(*"4 kişilik köfte yapacağım, gidip alacağım"*), press **Başlat**, watch the paid timeline,
-pick an option, approve — then switch to **Esnaf Konsolu**, mark orders ready and enter the
-pickup codes shown on the flow page. The unified receipt appears when every shop settles.
+Then open **http://localhost:3000**, describe what you want to buy, press **Start**, and
+watch the paid research timeline. Approve the product list, pick an option, approve the
+purchase — then open the **Merchant Console** at `/merchant`, mark the orders ready and enter
+the pickup codes shown on the flow page. The unified receipt appears once every shop settles.
 
 Other useful commands:
 
 ```bash
-pnpm demo:timeout   # prep-timeout auto-refund demo (Cem Fırın never prepares)
+pnpm demo:timeout   # prep-timeout auto-refund demo (one merchant never prepares)
 pnpm test           # vitest: shared + db + bridge + merchant-agents + platform-api
 pnpm typecheck      # strict TS across the workspace
 ```
@@ -125,7 +97,7 @@ NEXT_PUBLIC_MOCK=false
 ```
 
 then `pnpm dev` and open http://localhost:3000 — the shopping flow is now gated behind a
-"connect wallet" card. Click **Cüzdan Bağla**, pick your wallet, sign the sign-in message,
+"connect wallet" card. Click **Select Wallet**, pick your wallet, sign the sign-in message,
 and `/me` fills in with your account + agent. This last step needs an actual wallet
 extension and a live Postgres + Redis + `SOLANA_RPC_URL`, so treat it as a manual smoke
 test before relying on real-mode auth.
@@ -150,8 +122,8 @@ escrow) is completely unchanged otherwise.
   (`UPDATE ... WHERE available_quantity >= qty`, race-safe under concurrent requests).
 - New merchant console endpoints: `GET /console/acceptances`,
   `POST /console/acceptances/:id/accept`, `POST /console/acceptances/:id/reject`
-  (`apps/web/app/merchant`'s "Bekleyen Kabuller" section polls these every 3s and plays a
-  repeating `public/notify.wav` chime — mute button included).
+  (`apps/web/app/merchant`'s "Pending Merchant Approvals" section polls these every 3s and
+  plays a repeating `public/notify.wav` chime — mute button included).
 - Bridge: `POST /tasks/:id/select-option` + `/approve-payment` open a real acceptance
   window per shop (Postgres path); rejections run the same alternative-merchant/drop/
   cancel saga as the mock path. Once every shop is `merchant_confirmed`, escrow rows are
@@ -163,7 +135,7 @@ escrow) is completely unchanged otherwise.
 Verified end-to-end against a live Postgres with `MockChainProvider` (2 shops accept, 1
 rejects → alternative-merchant saga → fund → verify → merchant prepares → ready → pickup →
 escrow released — see `apps/local-agent-bridge/test/acceptance.test.ts`, skipped unless
-`DATABASE_URL` is set; re-run `pnpm db:seed:pg` first if cem-firin's 2-unit ekmek stock has
+`DATABASE_URL` is set; re-run `pnpm db:seed:pg` first if the bakery's 2-unit bread stock has
 been drained by earlier runs), and also **verified against real Solana devnet**: `pnpm
 chain:smoke` (`scripts/chain-smoke.ts`) drives the deployed `order_escrow` program through
 fund → markPreparing → markReady → confirmPickup, a wrong-pickup-code rejection, and a
@@ -208,8 +180,8 @@ On top of the 5 fixed seed merchants, any signed-in account can create its own m
 add products/inventory, and (once an operator publishes it on-chain) start taking orders —
 all gated behind `DATABASE_URL` the same way Faz I/J are.
 
-- **Esnaf Paneli** (`apps/web/app/merchant-dashboard`, distinct from the fulfillment-only
-  **Esnaf Konsolu** at `/merchant`): create a merchant (starts `draft`), manage products/
+- **Merchant Dashboard** (`apps/web/app/merchant-dashboard`, distinct from the
+  fulfillment-only **Merchant Console** at `/merchant`): create a merchant (starts `draft`), manage products/
   inventory/pricing settings, view the LLM pricing-decision log. Routes and repo functions
   live in `apps/platform-api/src/merchantRoutes.ts` and `packages/db/src/repos/merchantAdmin.ts`.
 - **Publishing + operator admin panel** (`apps/web/app/admin`, gated behind
@@ -228,8 +200,8 @@ all gated behind `DATABASE_URL` the same way Faz I/J are.
   final price. The discount call has a hard timeout (`AGY_TIMEOUT_MS`) and a basic
   per-merchant in-memory rate limit; any failure (timeout, bad output, rate limit) falls back
   to the plain undiscounted quote rather than failing the request, and every decision
-  (including fallbacks) is logged to `pricingDecisions` — visible on the panel's "Kararlar"
-  page.
+  (including fallbacks) is logged to `pricingDecisions` — visible on the dashboard's
+  pricing-decisions page.
 - **Disputes** (minimal slice, no staking/slashing): a buyer opens one from the receipt page
   (`POST /shopping/tasks/:taskId/orders/:orderId/dispute`); the merchant can see disputes
   against their own orders read-only (`/merchant-dashboard/:id/disputes`); an operator
@@ -274,7 +246,7 @@ Solana RPC required for the mock demo.
 | Rule | Enforcement |
 | --- | --- |
 | Every merchant request is paid | `paymentGate` middleware on all merchant endpoints (`apps/merchant-agents/src/payments.ts`) |
-| LLM never produces prices/stock/discounts directly | Plans are zod-validated to canonical SKUs only; all money math is deterministic from the inventory DB. From Faz 3 on, the LLM may *propose* a discount bps, but `pricingPolicy.ts` always clamps it before it reaches a quote — see AGENTS.md |
+| LLM never produces prices/stock/discounts directly | Plans are zod-validated to canonical SKUs only; all money math is deterministic from the inventory DB. From Faz 3 on, the LLM may *propose* a discount bps, but `pricingPolicy.ts` always clamps it before it reaches a quote |
 | USDC-native integer micro-USDC | `packages/shared/src/usdc.ts` — no floats, no fiat anywhere |
 | Signed quotes | Merchant Ed25519-signs every quote with its Solana wallet key; verified at quote receipt AND again at order time and before escrow funding (`packages/shared/src/quoteSignature.ts`) |
 | Idempotency on every paid request | SQLite `idempotency` table: same key+payload → replay; different payload → 409; proofs are single-use |
@@ -300,10 +272,9 @@ paid_in_escrow → preparing → ready → completed`, with exits `expired` (quo
 TTL), `refunded` (cancel / prep-timeout / deadline), `cancelled`, `merchant_rejected`,
 `disputed`. Every transition is appended to the order's `stateLog` and pushed over SSE to
 the UI. (In pure mock mode with no `DATABASE_URL`, the pre-funding chain from
-`merchant_pending` to `awaiting_funding` is fast-forwarded in one step — see AGENTS.md's
-"Sipariş Durum Makinesi".)
+`merchant_pending` to `awaiting_funding` is fast-forwarded in one step.)
 
-### Demo spend budget (köfte run)
+### Demo spend budget (one demo run)
 
 5 quotes (0.0025) + reserve (0.001) + 2 quality asks (0.0004) + 1 negotiation (0.002) +
 4 order fees (0.004) = **0.0099 / 0.01 USDC** — the budget gauge ends one micro-action away
@@ -382,14 +353,33 @@ Mock mode remains the reliable demo path. The swap points:
    seeding; self-service merchants get their own AES-256-GCM-encrypted signer key generated
    at creation time instead.
 
-## Deliverables map
+## Tests
 
-- Tests: `packages/shared/test`, `packages/db/test`, `apps/merchant-agents/test`,
-  `apps/local-agent-bridge/test`, `apps/platform-api/test` (vitest); `/solana/programs/*/tests`
-  (`cargo test`/litesvm).
-- Project guide for coding agents: [AGENTS.md](AGENTS.md) — the source of truth for
-  architecture, non-negotiables, and env vars; kept current across every phase.
-- Historical decisions/plans (EVM/Arc-testnet era, superseded by the Solana architecture
-  above — kept for record, not current): [DECISIONS.md](DECISIONS.md), [LIVE_PLAN.md](LIVE_PLAN.md),
-  [LIVE_PLAN_V2.md](LIVE_PLAN_V2.md).
-- Env template: [.env.example](.env.example).
+`packages/shared/test`, `packages/db/test`, `apps/merchant-agents/test`,
+`apps/local-agent-bridge/test`, `apps/platform-api/test` (vitest); `/solana/programs/*/tests`
+(`cargo test`/litesvm). Environment template: [.env.example](.env.example).
+
+## Roadmap
+
+The MVP is web-first and pickup-only on purpose: the hackathon timeline favored shipping a
+real, working Solana devnet demo over a bigger surface area. The underlying primitives —
+**agent-to-agent micropayments, on-chain escrow, and verified completion** — aren't specific
+to local grocery pickup, and the plan is to prove that out:
+
+- **Native mobile app.** A local-commerce agent is fundamentally a mobile use case (you're
+  walking to the shop, not sitting at a desk) — web was the deliberate scoping choice for the
+  hackathon, not the end state. A React Native/Expo client reusing the same wallet-adapter and
+  API layer is the next client target.
+- **Courier delivery.** Same escrow model, different release trigger: instead of an in-person
+  pickup code, a courier agent (itself a paid participant in the marketplace) confirms
+  delivery via GPS + proof-of-delivery, and that confirmation releases the merchant's escrow.
+- **Broader online shopping.** Today's merchant discovery is hyper-local (Haversine distance
+  to nearby shops). The same paid-quote → negotiate → escrow → release pipeline generalizes to
+  any online merchant catalog, not just neighborhood shops within walking distance.
+- **Service marketplaces (e.g. ride-hailing).** The furthest-out extension: swap "goods
+  pickup" for "service completion." A driver agent quotes a fare, the buyer approves, escrow
+  funds, and release triggers on verified trip completion instead of a pickup code — the same
+  three primitives, applied to a service instead of a product.
+
+None of the above is implemented — this section is a roadmap, not a claim about the current
+MVP.

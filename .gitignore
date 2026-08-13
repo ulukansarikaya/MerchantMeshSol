@@ -27,7 +27,15 @@ AGENTS.md
 
 # Local presentation build and generated inspection files
 .artifacts/
+*.pptx
 *.pptx.inspect.ndjson
+
+# Local planning and submission material — keep on disk, do not publish
+/*.md
+!/README.md
+docs/
+plans/
+solana/DEVNET.md
 
 # Anchor build outputs are reproducible and can be very large
 solana/target/

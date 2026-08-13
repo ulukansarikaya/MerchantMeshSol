@@ -89,7 +89,7 @@ export default function MerchantProductsPage() {
         >
           <select className="input" value={form.canonicalSku} onChange={(e) => setForm({ ...form, canonicalSku: e.target.value })}>
             {CANONICAL_SKUS.map((s) => (
-              <option key={s.sku} value={s.sku}>{s.nameEn} ({s.sku})</option>
+              <option key={s.sku} value={s.sku}>{s.nameEn}</option>
             ))}
           </select>
           <input className="input" placeholder="Merchant-specific product name (optional)" value={form.merchantProductName} onChange={(e) => setForm({ ...form, merchantProductName: e.target.value })} />
