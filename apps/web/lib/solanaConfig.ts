@@ -16,7 +16,19 @@ export const SOLANA_CLUSTER = process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet"
 // when a single approval funds several escrows back to back. Override with
 // NEXT_PUBLIC_SOLANA_RPC_URL only if you have a keyless endpoint that can
 // take the load.
-export const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "/api/rpc";
+//
+// Absolute, not a bare "/api/rpc": both wallet-adapter's ConnectionProvider
+// and @solana/kit reject a relative endpoint, so the origin is filled in
+// here. Only the browser actually drives those clients — the server-side
+// branch exists so importing this module during SSR still yields a valid URL.
+function resolveRpcUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+  if (explicit) return explicit;
+  if (typeof window !== "undefined") return `${window.location.origin}/api/rpc`;
+  return `http://localhost:${process.env.PORT ?? 3000}/api/rpc`;
+}
+
+export const SOLANA_RPC_URL = resolveRpcUrl();
 export const SOLANA_EXPLORER_URL = process.env.NEXT_PUBLIC_SOLANA_EXPLORER_URL;
 export const USDC_MINT = process.env.NEXT_PUBLIC_USDC_MINT;
 
