@@ -38,8 +38,8 @@ pnpm dev        # all four services: web :3000, platform-api :3002, bridge :3001
 
 `pnpm dev` always starts `platform-api` too, but it's a no-op for the mock demo above —
 with `apps/web/.env.local`'s default `NEXT_PUBLIC_MOCK=true` and no `DATABASE_URL`, the web
-app never calls it and the bridge never requires a session. See "Live-version wallet auth
-(Faz C)" below for the real-mode Solana wallet login path.
+app never calls it and the bridge never requires a session. See "Live mode: Solana wallet sign-in"
+below for the real-mode login path.
 
 Then open **http://localhost:3000**, describe what you want to buy, press **Start**, and
 watch the paid research timeline. Approve the product list, pick an option, approve the
@@ -54,7 +54,72 @@ pnpm test           # vitest: shared + db + bridge + merchant-agents + platform-
 pnpm typecheck      # strict TS across the workspace
 ```
 
-## Live-version infrastructure (Faz A — optional, not needed for the mock demo)
+## Architecture
+
+```
+/apps/web                  Next.js 15 + TS + Tailwind v4 (design tokens)   :3000
+/apps/local-agent-bridge   Hono — the personal AI agent + mock/real chain  :3001
+/apps/platform-api         Hono — Solana wallet auth, session wallet,
+                           merchant self-service + admin routes (live-only) :3002
+/apps/merchant-agents      Hono — all 5 seed merchants + self-service ones  :4000
+/solana                    Anchor workspace — merchant_directory,
+                           order_escrow, order_receipt (litesvm/cargo test
+                           + IDL/TS type generation), deployed on devnet
+/packages/shared           zod schemas, canonical SKUs, Ed25519 quote
+                           signatures, PDA/instruction helpers, USDC
+                           helpers, Haversine, merchant seed, chain config,
+                           Node-only session middleware (`/sessionAuth` subpath)
+/packages/db               live-version only — Drizzle schema, Postgres client,
+                           Redis client (see "Live-version infrastructure" above)
+/scripts                   seed.ts, demo.ts (boots both services in-process),
+                           seed-pg.ts, chain-smoke.ts, ledger-check.ts,
+                           init-devnet.ts (deploy + register the 5 seed merchants)
+```
+
+Storage is SQLite via Node's built-in `node:sqlite` — one DB file per service
+(`apps/*/data/*.db`), idempotency store included, in mock mode. No Postgres, no Redis, no
+Solana RPC required for the mock demo.
+
+### The non-negotiables, where they live
+
+| Rule | Enforcement |
+| --- | --- |
+| Every merchant request is paid | `paymentGate` middleware on all merchant endpoints (`apps/merchant-agents/src/payments.ts`) |
+| LLM never produces prices/stock/discounts directly | Plans are zod-validated to canonical SKUs only; all money math is deterministic from the inventory DB. The LLM may *propose* a discount bps, but `pricingPolicy.ts` always clamps it before it reaches a quote |
+| USDC-native integer micro-USDC | `packages/shared/src/usdc.ts` — no floats, no fiat anywhere |
+| Signed quotes | Merchant Ed25519-signs every quote with its Solana wallet key; verified at quote receipt AND again at order time and before escrow funding (`packages/shared/src/quoteSignature.ts`) |
+| Idempotency on every paid request | SQLite `idempotency` table: same key+payload → replay; different payload → 409; proofs are single-use |
+| Research budget enforced in code | `MockPaymentProvider.pay()` checks per-request cap (0.002) and total (0.01) **including pending spends** before issuing any proof |
+| Escrow releases on pickup code | merchant `verify-pickup` → `keccak256(code)` check → on-chain `confirm_pickup`; manual user release exists only as a labeled fallback; the timeout worker auto-refunds past `releaseDeadline` |
+| Mock-first | `MOCK_PAYMENTS` / `MOCK_CHAIN` / `AI_PROVIDER` env toggles; real integrations live behind adapters |
+
+### Payment flow (x402-style)
+
+Unpaid request → HTTP `402` + `{ amountMicroUsdc, asset, network, payTo, endpoint, reason,
+idempotencyKey }` → the bridge pays via its `PaymentProvider` and retries with an
+`X-Payment` proof header. In mock mode the proof is an HMAC token the merchant verifies
+locally; the bridge debits the task's research budget in SQLite. Failed negotiations
+auto-refund the 0.002 USDC fee (`x-fee-refunded` header → budget credit).
+
+Endpoint prices: ask 0.0002 · inventory 0.0003 · quote 0.0005 · negotiate 0.002 ·
+reserve 0.001 · order 0.001 (all USDC).
+
+### Order state machine
+
+`quoted → user_selected → merchant_pending → merchant_confirmed → awaiting_funding →
+paid_in_escrow → preparing → ready → completed`, with exits `expired` (quote/reservation
+TTL), `refunded` (cancel / prep-timeout / deadline), `cancelled`, `merchant_rejected`,
+`disputed`. Every transition is appended to the order's `stateLog` and pushed over SSE to
+the UI. (In pure mock mode with no `DATABASE_URL`, the pre-funding chain from
+`merchant_pending` to `awaiting_funding` is fast-forwarded in one step.)
+
+### Demo spend budget (one demo run)
+
+5 quotes (0.0025) + reserve (0.001) + 2 quality asks (0.0004) + 1 negotiation (0.002) +
+4 order fees (0.004) = **0.0099 / 0.01 USDC** — the budget gauge ends one micro-action away
+from the cap, and the enforcement test proves overruns are physically blocked.
+
+## Live mode: database infrastructure (optional)
 
 The mock-mode path above (`node:sqlite`) needs none of this. It exists for the live-version
 build, which layers accounts, agent memory, merchant catalogs and campaigns on
@@ -87,9 +152,9 @@ Env vars: `DATABASE_URL`, `REDIS_URL` (see `.env.example`). Smoke tests in
 `packages/db/test` skip themselves entirely when `DATABASE_URL` is unset, so `pnpm test`
 never depends on a live Postgres.
 
-## Live-version wallet auth (Faz C — optional, not needed for the mock demo)
+## Live mode: Solana wallet sign-in (optional)
 
-Adds real Solana wallet login on top of Faz A's Postgres: a new `apps/platform-api` service
+Adds real Solana wallet login on top of the Postgres layer above: a new `apps/platform-api` service
 (`:3002`) issues nonces, verifies a Solana sign-in message's Ed25519 signature (there's no
 standardized Sign-In-With-Solana parser in this dependency set, so it's a small fixed
 plain-text message, built and re-parsed by hand — see `apps/web/components/WalletWidget.tsx`
@@ -119,7 +184,7 @@ mirrors `NEXT_PUBLIC_PLATFORM_API_URL` / `NEXT_PUBLIC_SOLANA_*` (Next.js only in
 to 10 req/min/IP via Redis when `REDIS_URL` is set (disabled with a startup warning
 otherwise).
 
-## Live-version merchant acceptance + funding (Faz I — optional, not needed for the mock demo)
+## Live mode: merchant acceptance + escrow funding (optional)
 
 The real merchant acceptance window (`merchant_pending → merchant_confirmed`) and the
 funding wizard that lets the user's own connected wallet sign the Solana `fund` instruction.
@@ -151,7 +216,7 @@ chain:smoke` (`scripts/chain-smoke.ts`) drives the deployed `order_escrow` progr
 fund → markPreparing → markReady → confirmPickup, a wrong-pickup-code rejection, and a
 past-deadline refund, all as real signed devnet transactions.
 
-## Live-version real payments (Faz J — optional, not needed for the mock demo)
+## Live mode: real USDC micropayments (optional)
 
 Every research micro-payment (quote-basket, negotiate, reserve) becomes a real USDC (SPL
 Token) transfer, signed by a per-account **session wallet** — never a shared/bridge-operated
@@ -175,7 +240,7 @@ mock HMAC path is completely unchanged otherwise.
 - `POST /merchant/:id/quote-basket` replaces `quote` in the orchestrator's own pipeline
   (bundles stock/price/signed-quote/quality/prep-time/reservation-eligibility into one paid
   call — the separate paid `ask`(quality) call is gone from the pipeline). `order` is free
-  now (Faz I's acceptance flow already creates orders without it).
+  now (the acceptance flow already creates orders without it).
 - `pnpm ledger:check` (`scripts/ledger-check.ts`) reconciles `payment_events` against the
   actual on-chain USDC transfers each session wallet sent — a mismatch exits non-zero.
 
@@ -184,11 +249,11 @@ and the full session-wallet lifecycle against live Postgres (creation, ownership
 daily-spend accumulation, frozen-wallet rejection); payment verification logic is exercised
 through `MockChainProvider` in the mock-mode test suite (same code paths real-mode uses).
 
-## Merchant self-service + LLM-assisted pricing (Faz 2/3 — optional, not needed for the mock demo)
+## Merchant self-service + LLM-assisted pricing (optional)
 
 On top of the 5 fixed seed merchants, any signed-in account can create its own merchant,
 add products/inventory, and (once an operator publishes it on-chain) start taking orders —
-all gated behind `DATABASE_URL` the same way Faz I/J are.
+all gated behind `DATABASE_URL` the same way the sections above are.
 
 - **Merchant Dashboard** (`apps/web/app/merchant-dashboard`, distinct from the
   fulfillment-only **Merchant Console** at `/merchant`): create a merchant (starts `draft`), manage products/
@@ -225,71 +290,6 @@ all gated behind `DATABASE_URL` the same way Faz I/J are.
   `time_window`/`loyalty`/`first_order` rule types — those stay create/edit-able through the
   API but are not yet evaluated against a quote.
 
-## Architecture
-
-```
-/apps/web                  Next.js 15 + TS + Tailwind v4 (design tokens)   :3000
-/apps/local-agent-bridge   Hono — the personal AI agent + mock/real chain  :3001
-/apps/platform-api         Hono — Solana wallet auth, session wallet,
-                           merchant self-service + admin routes (live-only) :3002
-/apps/merchant-agents      Hono — all 5 seed merchants + self-service ones  :4000
-/solana                    Anchor workspace — merchant_directory,
-                           order_escrow, order_receipt (litesvm/cargo test
-                           + IDL/TS type generation), deployed on devnet
-/packages/shared           zod schemas, canonical SKUs, Ed25519 quote
-                           signatures, PDA/instruction helpers, USDC
-                           helpers, Haversine, merchant seed, chain config,
-                           Node-only session middleware (`/sessionAuth` subpath)
-/packages/db               live-version only — Drizzle schema, Postgres client,
-                           Redis client (see "Live-version infrastructure" above)
-/scripts                   seed.ts, demo.ts (boots both services in-process),
-                           seed-pg.ts, chain-smoke.ts, ledger-check.ts,
-                           init-devnet.ts (deploy + register the 5 seed merchants)
-```
-
-Storage is SQLite via Node's built-in `node:sqlite` — one DB file per service
-(`apps/*/data/*.db`), idempotency store included, in mock mode. No Postgres, no Redis, no
-Solana RPC required for the mock demo.
-
-### The non-negotiables, where they live
-
-| Rule | Enforcement |
-| --- | --- |
-| Every merchant request is paid | `paymentGate` middleware on all merchant endpoints (`apps/merchant-agents/src/payments.ts`) |
-| LLM never produces prices/stock/discounts directly | Plans are zod-validated to canonical SKUs only; all money math is deterministic from the inventory DB. From Faz 3 on, the LLM may *propose* a discount bps, but `pricingPolicy.ts` always clamps it before it reaches a quote |
-| USDC-native integer micro-USDC | `packages/shared/src/usdc.ts` — no floats, no fiat anywhere |
-| Signed quotes | Merchant Ed25519-signs every quote with its Solana wallet key; verified at quote receipt AND again at order time and before escrow funding (`packages/shared/src/quoteSignature.ts`) |
-| Idempotency on every paid request | SQLite `idempotency` table: same key+payload → replay; different payload → 409; proofs are single-use |
-| Research budget enforced in code | `MockPaymentProvider.pay()` checks per-request cap (0.002) and total (0.01) **including pending spends** before issuing any proof |
-| Escrow releases on pickup code | merchant `verify-pickup` → `keccak256(code)` check → on-chain `confirm_pickup`; manual user release exists only as a labeled fallback; the timeout worker auto-refunds past `releaseDeadline` |
-| Mock-first | `MOCK_PAYMENTS` / `MOCK_CHAIN` / `AI_PROVIDER` env toggles; real integrations live behind adapters |
-
-### Payment flow (x402-style)
-
-Unpaid request → HTTP `402` + `{ amountMicroUsdc, asset, network, payTo, endpoint, reason,
-idempotencyKey }` → the bridge pays via its `PaymentProvider` and retries with an
-`X-Payment` proof header. In mock mode the proof is an HMAC token the merchant verifies
-locally; the bridge debits the task's research budget in SQLite. Failed negotiations
-auto-refund the 0.002 USDC fee (`x-fee-refunded` header → budget credit).
-
-Endpoint prices: ask 0.0002 · inventory 0.0003 · quote 0.0005 · negotiate 0.002 ·
-reserve 0.001 · order 0.001 (all USDC).
-
-### Order state machine
-
-`quoted → user_selected → merchant_pending → merchant_confirmed → awaiting_funding →
-paid_in_escrow → preparing → ready → completed`, with exits `expired` (quote/reservation
-TTL), `refunded` (cancel / prep-timeout / deadline), `cancelled`, `merchant_rejected`,
-`disputed`. Every transition is appended to the order's `stateLog` and pushed over SSE to
-the UI. (In pure mock mode with no `DATABASE_URL`, the pre-funding chain from
-`merchant_pending` to `awaiting_funding` is fast-forwarded in one step.)
-
-### Demo spend budget (one demo run)
-
-5 quotes (0.0025) + reserve (0.001) + 2 quality asks (0.0004) + 1 negotiation (0.002) +
-4 order fees (0.004) = **0.0099 / 0.01 USDC** — the budget gauge ends one micro-action away
-from the cap, and the enforcement test proves overruns are physically blocked.
-
 ## Wallet UX note
 
 In real mode, micropayments come from a **session wallet** funded once by the user — so
@@ -311,7 +311,7 @@ AGY_MODEL=agy-default
 The system prompt pins the model to the canonical SKU list and pure-JSON output; responses
 are zod-validated and non-canonical SKUs are dropped. `AI_PROVIDER=mock` (default) returns
 deterministic plans for the demo prompts, so the demo never depends on a live model. The
-same `AI_PROVIDER`/`AGY_*` env also drives Faz 3's merchant-side discount provider (see
+same `AI_PROVIDER`/`AGY_*` env also drives the merchant-side discount provider (see
 above) — one adapter pattern reused for both directions.
 
 ## Solana programs (Anchor, devnet)
