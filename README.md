@@ -56,6 +56,58 @@ pnpm typecheck      # strict TS across the workspace
 
 ## Architecture
 
+Four Node services, one shared TypeScript core, and three Anchor programs. The AI plans;
+databases, signatures and deterministic policy decide the numbers; Solana settles the money.
+
+```mermaid
+flowchart TD
+    B["Buyer<br/>browser + Phantom wallet"]
+    W["apps/web · :3000<br/>Next.js — shopping UI, merchant<br/>dashboard, operator admin"]
+    A["apps/local-agent-bridge · :3001<br/>Personal agent — LLM plan,<br/>orchestration, budget limits"]
+    P["apps/platform-api · :3002<br/>Wallet sign-in, session wallet,<br/>merchant onboarding, disputes"]
+    M["apps/merchant-agents · :4000<br/>Merchant agents — inventory,<br/>x402 gate, signed quotes"]
+    DB[("Postgres + Redis<br/>accounts, catalogs,<br/>tasks, reservations")]
+    S["Solana devnet<br/>merchant_directory · order_escrow · order_receipt"]
+
+    B --> W
+    W --> A
+    W --> P
+    A -->|"paid quote calls (x402)"| M
+    A --> DB
+    P --> DB
+    M --> DB
+    B -->|"signs escrow funding"| S
+    A -->|"verifies escrow state"| S
+    M -->|"pickup-code release"| S
+    P -->|"publish merchant, resolve dispute"| S
+```
+
+A purchase, end to end:
+
+```mermaid
+sequenceDiagram
+    actor Buyer
+    participant Agent as Personal agent
+    participant Merchants as Merchant agents
+    participant Solana as Solana devnet
+
+    Buyer->>Agent: natural-language shopping request
+    Agent->>Agent: plan into canonical SKUs
+    Buyer->>Agent: approve the product list
+    Agent->>Merchants: request a quote
+    Merchants-->>Agent: 402 — price, USDC mint, payee
+    Agent->>Solana: USDC micropayment from session wallet
+    Agent->>Merchants: retry with payment proof
+    Merchants-->>Agent: Ed25519-signed quote
+    Agent-->>Buyer: 2–3 ranked options
+    Buyer->>Merchants: select — each merchant accepts or rejects
+    Buyer->>Solana: fund per-merchant escrow (connected wallet)
+    Note over Buyer,Merchants: buyer collects the order in person
+    Merchants->>Solana: confirm pickup code → escrow released
+```
+
+Repository layout:
+
 ```
 /apps/web                  Next.js 15 + TS + Tailwind v4 (design tokens)   :3000
 /apps/local-agent-bridge   Hono — the personal AI agent + mock/real chain  :3001
