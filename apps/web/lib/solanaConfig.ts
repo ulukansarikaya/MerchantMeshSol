@@ -9,7 +9,14 @@
 // the IDL in /solana), so the web app imports them straight from
 // @merchantmesh/shared instead of mirroring them here.
 export const SOLANA_CLUSTER = process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet";
-export const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+
+// Routed through this app's own /api/rpc handler rather than straight at a
+// provider: the real endpoint carries an API key that must not ship in the
+// browser bundle, and the keyless public devnet endpoint rate-limits (429)
+// when a single approval funds several escrows back to back. Override with
+// NEXT_PUBLIC_SOLANA_RPC_URL only if you have a keyless endpoint that can
+// take the load.
+export const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "/api/rpc";
 export const SOLANA_EXPLORER_URL = process.env.NEXT_PUBLIC_SOLANA_EXPLORER_URL;
 export const USDC_MINT = process.env.NEXT_PUBLIC_USDC_MINT;
 
