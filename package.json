@@ -1,0 +1,41 @@
+{
+  "name": "merchantmesh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=23.4"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:web": "pnpm --filter @merchantmesh/web dev",
+    "dev:bridge": "pnpm --filter @merchantmesh/local-agent-bridge dev",
+    "dev:merchants": "pnpm --filter @merchantmesh/merchant-agents dev",
+    "dev:platform-api": "pnpm --filter @merchantmesh/platform-api dev",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:seed:merchants": "tsx scripts/seed-merchants.ts",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "db:migrate": "pnpm --filter @merchantmesh/db migrate",
+    "db:generate": "pnpm --filter @merchantmesh/db generate",
+    "db:seed:pg": "tsx scripts/seed-pg.ts",
+    "demo": "tsx scripts/demo.ts",
+    "demo:timeout": "tsx scripts/demo.ts --prep-timeout",
+    "ledger:check": "tsx scripts/ledger-check.ts",
+    "solana:build": "cd solana && anchor build",
+    "solana:deploy:devnet": "cd solana && anchor deploy --provider.cluster devnet",
+    "solana:init:devnet": "tsx scripts/init-devnet.ts",
+    "chain:smoke": "tsx scripts/chain-smoke.ts",
+    "test": "pnpm --filter \"./packages/*\" --filter \"./apps/local-agent-bridge\" --filter \"./apps/merchant-agents\" --filter \"./apps/platform-api\" test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@solana-program/system": "^0.10.0",
+    "@solana-program/token": "^0.9.0",
+    "@solana/kit": "^5.5.1",
+    "drizzle-orm": "^0.36.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

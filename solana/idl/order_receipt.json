@@ -1,0 +1,557 @@
+{
+  "address": "B5htcm88nzRtNyfHMyhh7SQ5pHudw1dMx6Ean5xP2wsm",
+  "metadata": {
+    "name": "order_receipt",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "docs": [
+    "OrderReceipt — unified on-chain receipt for a shopping task.",
+    "",
+    "Written by the relayer after settlement: research micro-spend, main",
+    "payment total, completed/total items, and a hash of the off-chain",
+    "receipt metadata."
+  ],
+  "instructions": [
+    {
+      "name": "create_receipt",
+      "discriminator": [
+        187,
+        57,
+        104,
+        13,
+        15,
+        1,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "relayer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "receipt_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "receipt_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "receipt_id",
+          "type": "u64"
+        },
+        {
+          "name": "task_ref",
+          "type": "string"
+        },
+        {
+          "name": "total_research_micro_usdc",
+          "type": "u64"
+        },
+        {
+          "name": "total_main_micro_usdc",
+          "type": "u64"
+        },
+        {
+          "name": "completed_items",
+          "type": "u64"
+        },
+        {
+          "name": "total_items",
+          "type": "u64"
+        },
+        {
+          "name": "metadata_uri",
+          "type": "string"
+        },
+        {
+          "name": "metadata_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "receipt_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "relayer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "record_refund",
+      "discriminator": [
+        115,
+        222,
+        234,
+        70,
+        160,
+        182,
+        220,
+        149
+      ],
+      "accounts": [
+        {
+          "name": "relayer",
+          "signer": true
+        },
+        {
+          "name": "receipt_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "receipt_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "receipt_id",
+          "type": "u64"
+        },
+        {
+          "name": "refunded_micro_usdc",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Receipt",
+      "discriminator": [
+        39,
+        154,
+        73,
+        106,
+        80,
+        102,
+        145,
+        153
+      ]
+    },
+    {
+      "name": "ReceiptConfig",
+      "discriminator": [
+        201,
+        194,
+        109,
+        67,
+        80,
+        248,
+        139,
+        45
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "MainPaymentRecorded",
+      "discriminator": [
+        2,
+        180,
+        132,
+        3,
+        47,
+        215,
+        6,
+        132
+      ]
+    },
+    {
+      "name": "MicroSpendRecorded",
+      "discriminator": [
+        178,
+        34,
+        24,
+        149,
+        146,
+        131,
+        59,
+        18
+      ]
+    },
+    {
+      "name": "OrderRefunded",
+      "discriminator": [
+        120,
+        155,
+        10,
+        169,
+        7,
+        98,
+        202,
+        187
+      ]
+    },
+    {
+      "name": "ReceiptCreated",
+      "discriminator": [
+        53,
+        236,
+        206,
+        24,
+        194,
+        10,
+        208,
+        163
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "only the receipt relayer can perform this action"
+    },
+    {
+      "code": 6001,
+      "name": "ReceiptIdMismatch",
+      "msg": "receipt_id does not match receipt_config.next_receipt_id"
+    },
+    {
+      "code": 6002,
+      "name": "Overflow",
+      "msg": "receipt id counter overflowed"
+    },
+    {
+      "code": 6003,
+      "name": "TaskRefTooLong",
+      "msg": "task_ref exceeds the maximum length"
+    },
+    {
+      "code": 6004,
+      "name": "MetadataUriTooLong",
+      "msg": "metadata_uri exceeds the maximum length"
+    }
+  ],
+  "types": [
+    {
+      "name": "MainPaymentRecorded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receipt_id",
+            "type": "u64"
+          },
+          {
+            "name": "total_main_micro_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "completed_items",
+            "type": "u64"
+          },
+          {
+            "name": "total_items",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MicroSpendRecorded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receipt_id",
+            "type": "u64"
+          },
+          {
+            "name": "total_research_micro_usdc",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderRefunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receipt_id",
+            "type": "u64"
+          },
+          {
+            "name": "task_ref",
+            "type": "string"
+          },
+          {
+            "name": "refunded_micro_usdc",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Receipt",
+      "docs": [
+        "Unified on-chain receipt for a shopping task, written by the relayer",
+        "after settlement: research micro-spend, main payment total,",
+        "completed/total items, and a hash of the off-chain receipt metadata."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receipt_id",
+            "type": "u64"
+          },
+          {
+            "name": "task_ref",
+            "type": "string"
+          },
+          {
+            "name": "total_research_micro_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "total_main_micro_usdc",
+            "type": "u64"
+          },
+          {
+            "name": "completed_items",
+            "type": "u64"
+          },
+          {
+            "name": "total_items",
+            "type": "u64"
+          },
+          {
+            "name": "metadata_uri",
+            "type": "string"
+          },
+          {
+            "name": "metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReceiptConfig",
+      "docs": [
+        "Workspace singleton: admin authority, the relayer that writes receipts,",
+        "and the next receipt id to hand out."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "relayer",
+            "type": "pubkey"
+          },
+          {
+            "name": "next_receipt_id",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReceiptCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receipt_id",
+            "type": "u64"
+          },
+          {
+            "name": "task_ref",
+            "type": "string"
+          },
+          {
+            "name": "metadata_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "RECEIPT_CONFIG_SEED",
+      "type": "bytes",
+      "value": "[114, 101, 99, 101, 105, 112, 116, 95, 99, 111, 110, 102, 105, 103]"
+    },
+    {
+      "name": "RECEIPT_SEED",
+      "type": "bytes",
+      "value": "[114, 101, 99, 101, 105, 112, 116]"
+    }
+  ]
+}

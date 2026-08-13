@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Design tokens — single source of truth for the visual layer.
+ * A design pass can restyle the whole app here without touching components.
+ * ------------------------------------------------------------------------- */
+@theme {
+  /* surfaces */
+  --color-bg: #0b0e14;
+  --color-surface: #121722;
+  --color-card: #131a28;
+  --color-card-2: #1a2336;
+  --color-border: #263049;
+
+  /* ink */
+  --color-ink: #e9edf6;
+  --color-muted: #94a1ba;
+
+  /* brand + semantics */
+  --color-brand: #f5a524;
+  --color-brand-ink: #201302;
+  --color-accent: #4cc3f7;
+  --color-success: #37d39b;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+
+  /* shape + type */
+  --radius-card: 0.75rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Semantic building blocks used across components */
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1.1rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.badge-on {
+  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+  color: var(--color-success);
+}
+.badge-off {
+  opacity: 0.55;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background: var(--color-card-2);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.btn:hover { filter: brightness(1.15); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: var(--color-brand-ink);
+}
+.btn-danger {
+  border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+  color: var(--color-danger);
+  background: transparent;
+}
+
+.input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card-2);
+  color: var(--color-ink);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+.input:focus {
+  outline: 2px solid color-mix(in srgb, var(--color-brand) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}

@@ -1,0 +1,37 @@
+# Local dev infra for the live version (Faz A). Not used by the mock-mode
+# path (node:sqlite) — start this only when working on packages/db features.
+services:
+  db:
+    build:
+      context: .
+      dockerfile: infra/db.Dockerfile
+    container_name: merchantmesh-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: merchantmesh
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - merchantmesh-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d merchantmesh"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: merchantmesh-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  merchantmesh-db-data:

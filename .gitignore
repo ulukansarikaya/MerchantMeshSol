@@ -1,0 +1,33 @@
+node_modules/
+.next/
+dist/
+out/
+*.db
+*.db-journal
+*.sqlite
+.env
+.env.local
+data/
+# Superseded EVM/Foundry tree — no app or package imports from it (the chain
+# layer is Solana/Anchor under /solana). Kept on disk for historical reference
+# only; excluded from the repo so the published project is Solana-only.
+contracts/
+coverage/
+*.tsbuildinfo
+
+# Local AI coding assistant config/state — not part of the shipped project
+.claude/
+.cursor/
+.windsurf/
+AGENTS.md
+
+# Dev server run logs
+.run-logs/
+*.log
+
+# Local presentation build and generated inspection files
+.artifacts/
+*.pptx.inspect.ndjson
+
+# Anchor build outputs are reproducible and can be very large
+solana/target/
